@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -26,6 +24,8 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from napari.viewer import Viewer
 
 
 @dataclass(frozen=True)
@@ -244,7 +244,7 @@ def _time_origin(time_key: TimeKey, align_mode: str) -> int:
 
 
 class SpamLoaderWidget(QWidget):
-    def __init__(self, viewer: "napari.viewer.Viewer"):
+    def __init__(self, viewer: Viewer):  # "napari.viewer.Viewer"):
         super().__init__()
         self._viewer = viewer
         self._scan: dict | None = None
