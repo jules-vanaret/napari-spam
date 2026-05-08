@@ -1,6 +1,6 @@
 [project]
 name = "napari-spam"
-dynamic = ["version"]
+version = "0.0.1"
 description = "A simple plugin to load results from Spam in Napari"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -55,7 +55,7 @@ napari-spam = "napari_spam:napari.yaml"
 
 
 [build-system]
-requires = ["setuptools>=77.0.3", "setuptools_scm"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -68,9 +68,6 @@ where = ["src"]
 "*" = ["*.yaml"]
 "napari_spam" = ["assets/*.png"]
 
-[tool.setuptools_scm]
-write_to = "src/napari_spam/_version.py"
-fallback_version = "0.0.1+nogit"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
