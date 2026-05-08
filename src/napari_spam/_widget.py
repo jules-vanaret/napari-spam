@@ -256,10 +256,10 @@ class SpamLoaderWidget(QWidget):
         paper_label.setTextFormat(Qt.RichText)
         paper_label.setOpenExternalLinks(True)
 
-        links_layout.addWidget(spacer_label)
+        # links_layout.addWidget(spacer_label)
         links_layout.addWidget(doc_label)
         links_layout.addWidget(paper_label)
-        links_layout.addWidget(spacer_label)
+        # links_layout.addWidget(spacer_label)
 
         header_row.addWidget(logo_label)
         header_row.addLayout(links_layout)
