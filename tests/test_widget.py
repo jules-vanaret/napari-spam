@@ -1,66 +1,52 @@
-import numpy as np
+from pathlib import Path
 
-from napari_spam._widget import (
-    ExampleQWidget,
-    ImageThreshold,
-    threshold_autogenerate_widget,
-    threshold_magic_widget,
-)
+from napari_spam._widget import _scan_folder
 
 
-def test_threshold_autogenerate_widget():
-    # because our 'widget' is a pure function, we can call it and
-    # test it independently of napari
-    im_data = np.random.random((100, 100))
-    thresholded = threshold_autogenerate_widget(im_data, 0.5)
-    assert thresholded.shape == im_data.shape
-    # etc.
+def _write_tsv(path: Path) -> None:
+    """Write a minimal TSV with required coordinate and value columns."""
+    # Minimal grid with coordinate + value columns.
+    content = "Zpos Ypos Xpos Xdisp\n0 0 0 1\n0 0 1 2\n0 1 0 3\n0 1 1 4\n"
+    path.write_text(content, encoding="utf-8")
 
 
-# make_napari_viewer is a pytest fixture that returns a napari viewer object
-# you don't need to import it, as long as napari is installed
-# in your testing environment
-def test_threshold_magic_widget(make_napari_viewer):
-    viewer = make_napari_viewer()
-    layer = viewer.add_image(np.random.random((100, 100)))
+def test_scan_folder_collects_actions_and_fields(tmp_path: Path) -> None:
+    """Scan a folder and collect actions, fields, and TSV columns.
 
-    # our widget will be a MagicFactory or FunctionGui instance
-    my_widget = threshold_magic_widget()
+    Checks that tif/tsv discovery enables the correct actions, extracts the
+    expected field names from tif filenames, and reads TSV header columns.
+    """
+    # Create tif variants that share a prefix but differ in field suffixes.
+    (tmp_path / "17-18-ldic-filtered-Xdisp.tif").write_text("", encoding="utf-8")
+    (tmp_path / "17-18-ldic-filtered-Ydisp.tif").write_text("", encoding="utf-8")
+    (tmp_path / "17-18-ldic-filtered-strain-dev.tif").write_text("", encoding="utf-8")
+    # Add one TSV so the TSV action and columns are present.
+    _write_tsv(tmp_path / "18-19-ldic-filtered-strain-Q8.tsv")
 
-    # if we 'call' this object, it'll execute our function
-    thresholded = my_widget(viewer.layers[0], 0.5)
-    assert thresholded.shape == layer.data.shape
-    # etc.
+    scan = _scan_folder(str(tmp_path))
 
-
-def test_image_threshold_widget(make_napari_viewer):
-    viewer = make_napari_viewer()
-    layer = viewer.add_image(np.random.random((100, 100)))
-    my_widget = ImageThreshold(viewer)
-
-    # because we saved our widgets as attributes of the container
-    # we can set their values without having to 'interact' with the viewer
-    my_widget._image_layer_combo.value = layer
-    my_widget._threshold_slider.value = 0.5
-
-    # this allows us to run our functions directly and ensure
-    # correct results
-    my_widget._threshold_im()
-    assert len(viewer.layers) == 2
+    # Both actions should be available.
+    assert "Load tifs" in scan["actions"]
+    assert "Load TSV files" in scan["actions"]
+    # Field names are parsed from the tif suffix tokens.
+    assert set(scan["tif_fields"]) == {"Xdisp", "Ydisp", "strain-dev"}
+    # TSV columns come from the header line.
+    assert scan["tsv_columns"] == ["Zpos", "Ypos", "Xpos", "Xdisp"]
 
 
-# capsys is a pytest fixture that captures stdout and stderr output streams
-def test_example_q_widget(make_napari_viewer, capsys):
-    # make viewer and add an image layer using our fixture
-    viewer = make_napari_viewer()
-    viewer.add_image(np.random.random((100, 100)))
+def test_scan_folder_reports_pairs(tmp_path: Path) -> None:
+    """Detect time pairs in tif/tsv filenames.
 
-    # create our widget, passing in the viewer
-    my_widget = ExampleQWidget(viewer)
+    Checks that a "02-03" prefix is treated as a time pair and the flags are set.
+    """
+    # Single-index tif should not disable pair detection for other files.
+    (tmp_path / "01.tif").write_text("", encoding="utf-8")
+    # Pair-indexed files should trigger the pair flags.
+    (tmp_path / "02-03-ldic-filtered-Xdisp.tif").write_text("", encoding="utf-8")
+    _write_tsv(tmp_path / "02-03-ldic-filtered-strain-Q8.tsv")
 
-    # call our widget method
-    my_widget._on_click()
+    scan = _scan_folder(str(tmp_path))
 
-    # read captured output and check that it's as we expected
-    captured = capsys.readouterr()
-    assert captured.out == 'napari has 1 layers\n'
+    # Pair flags should be true when any pair-indexed file is present.
+    assert scan["tif_has_pairs"] is True
+    assert scan["tsv_has_pairs"] is True

@@ -3,8 +3,6 @@
 [![License GNU GPL v3.0](https://img.shields.io/pypi/l/napari-spam.svg?color=green)](https://github.com/jules-vanaret/napari-spam/raw/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/napari-spam.svg?color=green)](https://pypi.org/project/napari-spam)
 [![Python Version](https://img.shields.io/pypi/pyversions/napari-spam.svg?color=green)](https://python.org)
-[![tests](https://github.com/jules-vanaret/napari-spam/workflows/tests/badge.svg)](https://github.com/jules-vanaret/napari-spam/actions)
-[![codecov](https://codecov.io/gh/jules-vanaret/napari-spam/branch/main/graph/badge.svg)](https://codecov.io/gh/jules-vanaret/napari-spam)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-spam)](https://napari-hub.org/plugins/napari-spam)
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 [![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
