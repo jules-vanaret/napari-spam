@@ -5,21 +5,10 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/napari-spam.svg?color=green)](https://python.org)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-spam)](https://napari-hub.org/plugins/napari-spam)
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
-[![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
 
 A simple plugin to load results from Spam in Napari
 
 ----------------------------------
-
-This [napari] plugin was generated with [copier] using the [napari-plugin-template] (None).
-
-<!--
-Don't miss the full getting started guide to set up your new package:
-https://github.com/napari/napari-plugin-template#getting-started
-
-and review the napari docs for plugin developers:
-https://napari.org/stable/plugins/index.html
--->
 
 ## Installation
 
