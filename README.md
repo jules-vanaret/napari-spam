@@ -12,6 +12,10 @@ A simple plugin to load results from Spam in Napari
 
 ## Installation
 
+The plugin obviously requires [napari] to run. If you don't have it yet, follow the instructions [here](https://napari.org/stable/tutorials/fundamentals/installation.html).
+
+The simplest way to install `napari-spam` is via the [napari] plugin manager. Open Napari, go to `Plugins > Install/Uninstall Packages...` and search for `napari-spam`. Click on the install button and you are ready to go!
+
 You can install `napari-spam` via [pip]:
 
 ```bash
