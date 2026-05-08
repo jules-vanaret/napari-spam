@@ -29,7 +29,6 @@ from napari_spam._parsing import (
     _ACTION_TIFS,
     _ACTION_TSVS,
     _ACTION_VTKS,
-    TimeKey,
     _scan_folder,
 )
 
@@ -76,14 +75,6 @@ def _mean_step(values: np.ndarray) -> float | None:
     return float(np.mean(diffs))
 
 
-def _time_origin(time_key: TimeKey, align_mode: str) -> int:
-    if time_key.kind == "single":
-        return time_key.a
-    if align_mode == "backward" and time_key.b is not None:
-        return time_key.b
-    return time_key.a
-
-
 class SpamLoaderWidget(QWidget):
     def __init__(self, viewer: Viewer):  # "napari.viewer.Viewer"):
         super().__init__()
@@ -114,11 +105,21 @@ class SpamLoaderWidget(QWidget):
         self._status_label = QLabel("")
         self._status_label.setWordWrap(True)
 
+        self._time_base = QSpinBox()
+        self._time_base.setRange(0, 10_000)
+        self._time_base.setValue(0)
+        self._load_button = QPushButton("Load")
+
         self._options_panel = QWidget()
         options_layout = QVBoxLayout()
         options_layout.setContentsMargins(0, 0, 0, 0)
         options_layout.addWidget(self._action_combo)
         options_layout.addWidget(self._stack)
+
+        shared_form = QFormLayout()
+        shared_form.addRow("First timepoint", self._time_base)
+        options_layout.addLayout(shared_form)
+        options_layout.addWidget(self._load_button)
         options_layout.addWidget(self._status_label)
         self._options_panel.setLayout(options_layout)
         self._options_panel.setVisible(False)
@@ -148,7 +149,7 @@ class SpamLoaderWidget(QWidget):
         links_layout = QVBoxLayout()
         links_layout.setContentsMargins(0, 0, 0, 0)
 
-        doc_label = QLabel(f'<a href="{SPAM_DOC_URL}">Spam documentation</a>')
+        doc_label = QLabel(f'<a href="{SPAM_DOC_URL}">Spam doc</a>')
         doc_label.setTextFormat(Qt.RichText)
         doc_label.setOpenExternalLinks(True)
 
@@ -173,24 +174,14 @@ class SpamLoaderWidget(QWidget):
         form = QFormLayout()
 
         self._tif_field_combo = QComboBox()
-        self._tif_align_combo = QComboBox()
-        self._tif_align_combo.addItems(["forward", "backward"])
         self._tif_scale = QDoubleSpinBox()
         self._tif_scale.setRange(0.001, 1000.0)
         self._tif_scale.setDecimals(4)
         self._tif_scale.setValue(1.0)
-        self._tif_time_base = QSpinBox()
-        self._tif_time_base.setRange(1, 10_000)
-        self._tif_time_base.setValue(1)
-        self._tif_load_button = QPushButton("Load tifs")
-
         form.addRow("Field", self._tif_field_combo)
-        form.addRow("Align", self._tif_align_combo)
         tif_scale_label = QLabel("Scale (pix<sup>-1</sup>)")
         tif_scale_label.setTextFormat(Qt.RichText)
         form.addRow(tif_scale_label, self._tif_scale)
-        form.addRow("First timepoint", self._tif_time_base)
-        form.addRow(self._tif_load_button)
 
         box = QGroupBox("TIF options")
         box.setLayout(form)
@@ -205,26 +196,16 @@ class SpamLoaderWidget(QWidget):
         form = QFormLayout()
 
         self._tsv_column_combo = QComboBox()
-        self._tsv_align_combo = QComboBox()
-        self._tsv_align_combo.addItems(["forward", "backward"])
         self._tsv_deduce_scale = QCheckBox("Deduce scale from file")
         self._tsv_scale = QDoubleSpinBox()
         self._tsv_scale.setRange(0.001, 1000.0)
         self._tsv_scale.setDecimals(4)
         self._tsv_scale.setValue(1.0)
-        self._tsv_time_base = QSpinBox()
-        self._tsv_time_base.setRange(1, 10_000)
-        self._tsv_time_base.setValue(1)
-        self._tsv_load_button = QPushButton("Load TSV")
-
         form.addRow("Column", self._tsv_column_combo)
-        form.addRow("Align", self._tsv_align_combo)
         form.addRow(self._tsv_deduce_scale)
         tsv_scale_label = QLabel("Scale (pix<sup>-1</sup>)")
         tsv_scale_label.setTextFormat(Qt.RichText)
         form.addRow(tsv_scale_label, self._tsv_scale)
-        form.addRow("First timepoint", self._tsv_time_base)
-        form.addRow(self._tsv_load_button)
 
         box = QGroupBox("TSV options")
         box.setLayout(form)
@@ -247,8 +228,7 @@ class SpamLoaderWidget(QWidget):
         self._folder_button.clicked.connect(self._browse_folder)
         self._folder_line.editingFinished.connect(self._on_folder_text)
         self._action_combo.currentIndexChanged.connect(self._on_action_change)
-        self._tif_load_button.clicked.connect(self._load_tifs)
-        self._tsv_load_button.clicked.connect(self._load_tsvs)
+        self._load_button.clicked.connect(self._load_current)
         self._tsv_deduce_scale.stateChanged.connect(self._on_tsv_scale_mode)
 
     def _browse_folder(self) -> None:
@@ -312,7 +292,6 @@ class SpamLoaderWidget(QWidget):
         fields = self._scan["tif_fields"]
         self._tif_field_combo.clear()
         self._tif_field_combo.addItems(fields)
-        self._tif_align_combo.setEnabled(self._scan["tif_has_pairs"])
 
     def _refresh_tsv_columns(self) -> None:
         if self._scan is None:
@@ -320,7 +299,15 @@ class SpamLoaderWidget(QWidget):
         columns = self._scan["tsv_columns"]
         self._tsv_column_combo.clear()
         self._tsv_column_combo.addItems(columns)
-        self._tsv_align_combo.setEnabled(self._scan["tsv_has_pairs"])
+
+    def _load_current(self) -> None:
+        action = self._action_combo.currentText()
+        if action == _ACTION_TIFS:
+            self._load_tifs()
+        elif action == _ACTION_TSVS:
+            self._load_tsvs()
+        elif action == _ACTION_VTKS:
+            self._status_label.setText("VTK loading is not implemented yet.")
 
     def _on_tsv_scale_mode(self) -> None:
         self._tsv_scale.setEnabled(not self._tsv_deduce_scale.isChecked())
@@ -337,9 +324,8 @@ class SpamLoaderWidget(QWidget):
             self._status_label.setText("No tif files found for this field.")
             return
 
-        align_mode = self._tif_align_combo.currentText()
         scale_factor = float(self._tif_scale.value())
-        time_base = int(self._tif_time_base.value())
+        time_base = int(self._time_base.value())
 
         try:
             stack = np.stack([tifffile.imread(item.path) for item in items], axis=0)
@@ -347,13 +333,11 @@ class SpamLoaderWidget(QWidget):
             self._status_label.setText(f"Failed to load tifs: {exc}")
             return
 
-        time_origin = _time_origin(items[0].time_key, align_mode)
         spatial_scale = (scale_factor,) * (stack.ndim - 1)
         layer_name = "tifs" if field == "image" else f"tifs_{field}"
         self._add_layer(
             stack,
             layer_name,
-            time_origin,
             time_base,
             spatial_scale,
             spatial_translate=None,
@@ -371,10 +355,9 @@ class SpamLoaderWidget(QWidget):
             self._status_label.setText("No TSV files found.")
             return
 
-        align_mode = self._tsv_align_combo.currentText()
         deduce_scale = self._tsv_deduce_scale.isChecked()
         fallback_scale = float(self._tsv_scale.value())
-        time_base = int(self._tsv_time_base.value())
+        time_base = int(self._time_base.value())
 
         arrays: list[np.ndarray] = []
         spatial_scale = (fallback_scale, fallback_scale, fallback_scale)
@@ -400,12 +383,10 @@ class SpamLoaderWidget(QWidget):
             return
 
         stack = np.stack(arrays, axis=0)
-        time_origin = _time_origin(items[0].time_key, align_mode)
         layer_name = f"tsv_{column}"
         self._add_layer(
             stack,
             layer_name,
-            time_origin,
             time_base,
             spatial_scale,
             spatial_translate,
@@ -415,14 +396,13 @@ class SpamLoaderWidget(QWidget):
         self,
         data: np.ndarray,
         name: str,
-        time_origin: int,
         time_base: int,
         spatial_scale: tuple[float, ...],
         spatial_translate: tuple[float, ...] | None,
     ) -> None:
         ndim = data.ndim
         scale = [1.0] + list(spatial_scale)
-        translate = [max(time_origin - time_base, 0)] + [0.0] * (ndim - 1)
+        translate = [-time_base] + [0.0] * (ndim - 1)
 
         if spatial_translate is not None:
             for idx, value in enumerate(spatial_translate, start=1):

@@ -7,17 +7,8 @@ from typing import Iterable
 
 
 @dataclass(frozen=True)
-class TimeKey:
-    kind: str
-    a: int
-    b: int | None = None
-
-
-@dataclass(frozen=True)
 class ParsedTif:
     path: Path
-    suffix_tokens: tuple[str, ...]
-    time_key: TimeKey
     field: str = ""
     common_mid: str = ""
 
@@ -25,7 +16,6 @@ class ParsedTif:
 @dataclass(frozen=True)
 class ParsedTsv:
     path: Path
-    time_key: TimeKey
 
 
 _ACTION_TIFS = "Load tifs"
@@ -41,20 +31,6 @@ def _natural_sort_key(text: str) -> list[object]:
         int(chunk) if chunk.isdigit() else chunk.lower()
         for chunk in _DIGIT_RE.split(text)
     ]
-
-
-def _is_int_token(token: str) -> bool:
-    return token.isdigit()
-
-
-def _parse_time_key_from_tokens(tokens: list[str]) -> tuple[TimeKey | None, int]:
-    if not tokens:
-        return None, 0
-    if _is_int_token(tokens[0]):
-        if len(tokens) > 1 and _is_int_token(tokens[1]):
-            return TimeKey(kind="pair", a=int(tokens[0]), b=int(tokens[1])), 2
-        return TimeKey(kind="single", a=int(tokens[0])), 1
-    return None, 0
 
 
 def _scan_folder(folder: str) -> dict:
@@ -82,55 +58,36 @@ def _scan_folder(folder: str) -> dict:
         "actions": actions,
         "tifs": parsed_tifs,
         "tif_fields": sorted({tif.field for tif in parsed_tifs}, key=_natural_sort_key),
-        "tif_has_pairs": any(tif.time_key.kind == "pair" for tif in parsed_tifs),
         "tsvs": parsed_tsvs,
         "tsv_columns": tsv_columns,
-        "tsv_has_pairs": any(tsv.time_key.kind == "pair" for tsv in parsed_tsvs),
         "vtks": vtk_paths,
     }
 
 
 def _parse_tif_paths(paths: Iterable[Path]) -> list[ParsedTif]:
-    staged: list[tuple[str, ParsedTif]] = []
+    entries: list[tuple[Path, list[str]]] = []
     for path in paths:
         tokens = path.stem.split("-")
-        time_key, consumed = _parse_time_key_from_tokens(tokens)
-        if time_key is None:
-            continue
-        first_part = "-".join(tokens[:consumed])
-        suffix_tokens = tuple(tokens[consumed:])
-        staged.append(
-            (
-                first_part,
-                ParsedTif(
-                    path=path,
-                    suffix_tokens=suffix_tokens,
-                    time_key=time_key,
-                ),
-            )
-        )
+        entries.append((path, tokens))
 
-    grouped: dict[str, list[ParsedTif]] = {}
-    for first_part, entry in staged:
-        grouped.setdefault(first_part, []).append(entry)
+    if not entries:
+        return []
+
+    token_lists = [tokens for _, tokens in entries]
+    common_prefix = _common_prefix(token_lists)
 
     parsed: list[ParsedTif] = []
-    for entries in grouped.values():
-        suffix_lists = [list(item.suffix_tokens) for item in entries]
-        common_prefix = _common_prefix(suffix_lists)
-        for item in entries:
-            field_tokens = item.suffix_tokens[len(common_prefix) :]
-            field = "-".join(field_tokens) if field_tokens else "image"
-            common_mid = "-".join(common_prefix)
-            parsed.append(
-                ParsedTif(
-                    path=item.path,
-                    suffix_tokens=item.suffix_tokens,
-                    time_key=item.time_key,
-                    field=field,
-                    common_mid=common_mid,
-                )
+    for path, tokens in entries:
+        field_tokens = tokens[len(common_prefix) :]
+        field = "-".join(field_tokens) if field_tokens else "image"
+        common_mid = "-".join(common_prefix)
+        parsed.append(
+            ParsedTif(
+                path=path,
+                field=field,
+                common_mid=common_mid,
             )
+        )
 
     return sorted(parsed, key=lambda t: _natural_sort_key(t.path.name))
 
@@ -138,11 +95,7 @@ def _parse_tif_paths(paths: Iterable[Path]) -> list[ParsedTif]:
 def _parse_tsv_paths(paths: Iterable[Path]) -> list[ParsedTsv]:
     parsed: list[ParsedTsv] = []
     for path in paths:
-        tokens = path.stem.split("-")
-        time_key, consumed = _parse_time_key_from_tokens(tokens)
-        if time_key is None:
-            continue
-        parsed.append(ParsedTsv(path=path, time_key=time_key))
+        parsed.append(ParsedTsv(path=path))
 
     return sorted(parsed, key=lambda t: _natural_sort_key(t.path.name))
 
