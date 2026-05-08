@@ -1,6 +1,6 @@
 [project]
 name = "napari-spam"
-version = "0.0.1"
+version = "0.0.2"
 description = "A simple plugin to load results from Spam in Napari"
 readme = "README.md"
 license = "GPL-3.0-or-later"
