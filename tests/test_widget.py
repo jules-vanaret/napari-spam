@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from napari_spam._widget import _scan_folder
+from napari_spam._parsing import _scan_folder
 
 
 def _write_tsv(path: Path) -> None:
