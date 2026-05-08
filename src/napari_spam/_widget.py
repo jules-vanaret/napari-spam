@@ -186,7 +186,9 @@ class SpamLoaderWidget(QWidget):
 
         form.addRow("Field", self._tif_field_combo)
         form.addRow("Align", self._tif_align_combo)
-        form.addRow("Scale", self._tif_scale)
+        tif_scale_label = QLabel("Scale (pix<sup>-1</sup>)")
+        tif_scale_label.setTextFormat(Qt.RichText)
+        form.addRow(tif_scale_label, self._tif_scale)
         form.addRow("First timepoint", self._tif_time_base)
         form.addRow(self._tif_load_button)
 
@@ -218,7 +220,9 @@ class SpamLoaderWidget(QWidget):
         form.addRow("Column", self._tsv_column_combo)
         form.addRow("Align", self._tsv_align_combo)
         form.addRow(self._tsv_deduce_scale)
-        form.addRow("Scale", self._tsv_scale)
+        tsv_scale_label = QLabel("Scale (pix<sup>-1</sup>)")
+        tsv_scale_label.setTextFormat(Qt.RichText)
+        form.addRow(tsv_scale_label, self._tsv_scale)
         form.addRow("First timepoint", self._tsv_time_base)
         form.addRow(self._tsv_load_button)
 
