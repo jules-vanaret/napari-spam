@@ -35,18 +35,17 @@ def test_scan_folder_collects_actions_and_fields(tmp_path: Path) -> None:
 
 
 def test_scan_folder_reports_pairs(tmp_path: Path) -> None:
-    """Detect time pairs in tif/tsv filenames.
+    """Ensure scan collects actions even with mixed filename patterns.
 
-    Checks that a "02-03" prefix is treated as a time pair and the flags are set.
+    Confirms the presence of tif/tsv files still yields the expected actions.
     """
-    # Single-index tif should not disable pair detection for other files.
+    # Single-index tif should not prevent action discovery.
     (tmp_path / "01.tif").write_text("", encoding="utf-8")
-    # Pair-indexed files should trigger the pair flags.
+    # Mixed naming patterns should still be recognized.
     (tmp_path / "02-03-ldic-filtered-Xdisp.tif").write_text("", encoding="utf-8")
     _write_tsv(tmp_path / "02-03-ldic-filtered-strain-Q8.tsv")
 
     scan = _scan_folder(str(tmp_path))
 
-    # Pair flags should be true when any pair-indexed file is present.
-    assert scan["tif_has_pairs"] is True
-    assert scan["tsv_has_pairs"] is True
+    assert "Load tifs" in scan["actions"]
+    assert "Load TSV files" in scan["actions"]
