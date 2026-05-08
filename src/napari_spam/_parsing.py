@@ -23,7 +23,10 @@ _ACTION_TSVS = "Load TSV files"
 _ACTION_VTKS = "Load VTK files"
 
 
+TOKEN_SEPARATORS = ["-", "_"]
+
 _DIGIT_RE = re.compile(r"(\d+)")
+_TOKEN_SPLIT_RE = re.compile("[" + re.escape("".join(TOKEN_SEPARATORS)) + "]")
 
 
 def _natural_sort_key(text: str) -> list[object]:
@@ -31,6 +34,10 @@ def _natural_sort_key(text: str) -> list[object]:
         int(chunk) if chunk.isdigit() else chunk.lower()
         for chunk in _DIGIT_RE.split(text)
     ]
+
+
+def _split_tokens(text: str) -> list[str]:
+    return [token for token in _TOKEN_SPLIT_RE.split(text) if token]
 
 
 def _scan_folder(folder: str) -> dict:
@@ -67,7 +74,7 @@ def _scan_folder(folder: str) -> dict:
 def _parse_tif_paths(paths: Iterable[Path]) -> list[ParsedTif]:
     entries: list[tuple[Path, list[str]]] = []
     for path in paths:
-        tokens = path.stem.split("-")
+        tokens = _split_tokens(path.stem)
         entries.append((path, tokens))
 
     if not entries:
