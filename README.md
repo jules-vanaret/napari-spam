@@ -45,11 +45,7 @@ the coverage at least stays the same before you submit a pull request.
 ## License
 
 Distributed under the terms of the [GNU GPL v3.0] license,
-"napari-spam" is free and open source software
-
-## Issues
-
-If you encounter any problems, please [file an issue] along with a detailed description.
+"napari-spam" is free and open source software.
 
 [napari]: https://github.com/napari/napari
 [copier]: https://copier.readthedocs.io/en/stable/
