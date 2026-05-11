@@ -3,7 +3,7 @@ from importlib import resources
 import numpy as np
 import tifffile
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QPixmap
+from qtpy.QtGui import QDoubleValidator, QPixmap
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -151,6 +151,7 @@ class SpamLoaderWidget(QWidget):
 
         self._status_label = QLabel("")
         self._status_label.setWordWrap(True)
+        self._status_label.setStyleSheet("color: #b00020;")
 
         self._group_mode_combo = QComboBox()
         self._group_mode_combo.addItems(
@@ -158,7 +159,10 @@ class SpamLoaderWidget(QWidget):
         )
         self._file_list = QListWidget()
         self._file_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self._file_list.setMinimumHeight(140)
+        row_height = self._file_list.fontMetrics().height() + 6
+        self._file_list.setFixedHeight(
+            row_height * 4 + 2 * self._file_list.frameWidth()
+        )
         self._file_list.selectionModel().selectionChanged.connect(
             self._on_file_selection_changed
         )
@@ -234,32 +238,25 @@ class SpamLoaderWidget(QWidget):
 
         logo_label = QLabel()
         logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        logo_ref = resources.files("napari_spam").joinpath("assets/napari-spam.png")
+        logo_ref = resources.files("napari_spam").joinpath("assets/napari-spam2.png")
         with resources.as_file(logo_ref) as logo_path:
             if logo_path.exists():
                 pixmap = QPixmap(str(logo_path))
                 if not pixmap.isNull():
                     logo_label.setPixmap(
-                        pixmap.scaledToHeight(48, Qt.SmoothTransformation)
+                        pixmap.scaledToHeight(30, Qt.SmoothTransformation)
                     )
 
         links_layout = QVBoxLayout()
         links_layout.setContentsMargins(0, 0, 0, 0)
 
-        doc_label = QLabel(f'<a href="{SPAM_DOC_URL}">Spam doc</a>')
-        doc_label.setTextFormat(Qt.RichText)
-        doc_label.setOpenExternalLinks(True)
-
-        spacer_label = QLabel(" ")
-
-        paper_label = QLabel(f'<a href="{SPAM_PAPER_URL}">Spam paper</a>')
-        paper_label.setTextFormat(Qt.RichText)
-        paper_label.setOpenExternalLinks(True)
-
-        # links_layout.addWidget(spacer_label)
-        links_layout.addWidget(doc_label)
-        links_layout.addWidget(paper_label)
-        # links_layout.addWidget(spacer_label)
+        links_label = QLabel(
+            f'[<a href="{SPAM_DOC_URL}">doc</a>, '
+            f'<a href="{SPAM_PAPER_URL}">paper</a>]'
+        )
+        links_label.setTextFormat(Qt.RichText)
+        links_label.setOpenExternalLinks(True)
+        links_layout.addWidget(links_label)
 
         header_row.addWidget(logo_label)
         header_row.addLayout(links_layout)
@@ -270,10 +267,9 @@ class SpamLoaderWidget(QWidget):
         panel = QWidget()
         form = QFormLayout()
 
-        self._tif_scale = QDoubleSpinBox()
-        self._tif_scale.setRange(0.001, 1000.0)
-        self._tif_scale.setDecimals(4)
-        self._tif_scale.setValue(1.0)
+        self._tif_scale = QLineEdit()
+        self._tif_scale.setText("1.0")
+        self._tif_scale.setValidator(QDoubleValidator(0.0, 1e12, 8))
         tif_scale_label = QLabel("Scale (pix<sup>-1</sup>)")
         tif_scale_label.setTextFormat(Qt.RichText)
         form.addRow(tif_scale_label, self._tif_scale)
@@ -292,10 +288,9 @@ class SpamLoaderWidget(QWidget):
 
         self._tsv_column_combo = QComboBox()
         self._tsv_deduce_scale = QCheckBox("Deduce scale from file")
-        self._tsv_scale = QDoubleSpinBox()
-        self._tsv_scale.setRange(0.001, 1000.0)
-        self._tsv_scale.setDecimals(4)
-        self._tsv_scale.setValue(1.0)
+        self._tsv_scale = QLineEdit()
+        self._tsv_scale.setText("1.0")
+        self._tsv_scale.setValidator(QDoubleValidator(0.0, 1e12, 8))
         form.addRow("Column", self._tsv_column_combo)
         form.addRow(self._tsv_deduce_scale)
         tsv_scale_label = QLabel("Scale (pix<sup>-1</sup>)")
@@ -400,6 +395,26 @@ class SpamLoaderWidget(QWidget):
     def _on_tsv_scale_mode(self) -> None:
         self._tsv_scale.setEnabled(not self._tsv_deduce_scale.isChecked())
 
+    def _read_positive_scale(self, line_edit: QLineEdit, label: str) -> float | None:
+        text = "".join(line_edit.text().split())
+        if not text:
+            line_edit.setText("1")
+            return 1.0
+        if text.count(",") > 1 or ("," in text and "." in text):
+            self._status_label.setText(f"{label} scale must be a positive number.")
+            return None
+        if text.count(",") == 1:
+            text = text.replace(",", ".")
+        try:
+            value = float(text)
+        except ValueError:
+            self._status_label.setText(f"{label} scale must be a positive number.")
+            return None
+        if value <= 0.0:
+            self._status_label.setText(f"{label} scale must be a positive number.")
+            return None
+        return value
+
     def _set_crop_enabled(self) -> None:
         enabled = self._crop_enabled.isChecked()
         for min_spin, max_spin in self._crop_spins:
@@ -488,7 +503,9 @@ class SpamLoaderWidget(QWidget):
             self._status_label.setText("Selected files are not tif images.")
             return
 
-        scale_factor = float(self._tif_scale.value())
+        scale_factor = self._read_positive_scale(self._tif_scale, "TIF")
+        if scale_factor is None:
+            return
         time_base = int(self._time_base.value())
 
         try:
@@ -530,10 +547,16 @@ class SpamLoaderWidget(QWidget):
             return
 
         deduce_scale = self._tsv_deduce_scale.isChecked()
-        fallback_scale = float(self._tsv_scale.value())
+        fallback_scale = None
+        if not deduce_scale:
+            fallback_scale = self._read_positive_scale(self._tsv_scale, "TSV")
+            if fallback_scale is None:
+                return
         time_base = int(self._time_base.value())
 
         arrays: list[np.ndarray] = []
+        if fallback_scale is None:
+            fallback_scale = 1.0
         spatial_scale = (fallback_scale, fallback_scale, fallback_scale)
         spatial_translate = (0.0, 0.0, 0.0)
 
