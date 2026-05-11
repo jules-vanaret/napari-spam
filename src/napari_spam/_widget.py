@@ -156,7 +156,7 @@ class SpamLoaderWidget(QWidget):
 
         self._group_mode_combo = QComboBox()
         self._group_mode_combo.addItems(
-            ["Stack by selection order", "Stack by sorted names"]
+            ["Stack by sorted names", "Stack by selection order"]
         )
         self._file_list = QListWidget()
         self._file_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
