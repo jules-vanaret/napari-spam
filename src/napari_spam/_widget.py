@@ -127,6 +127,7 @@ class SpamLoaderWidget(QWidget):
         self._viewer = viewer
         self._scan: dict | None = None
         self._selection_order: list[str] = []
+        self._tsv_header_cache: dict[str, list[str]] = {}
 
         self._build_ui()
         self._connect_signals()
@@ -205,7 +206,6 @@ class SpamLoaderWidget(QWidget):
         options_layout = QVBoxLayout()
         options_layout.setContentsMargins(0, 0, 0, 0)
         options_layout.addWidget(self._action_combo)
-        options_layout.addWidget(self._stack)
 
         files_group = QGroupBox("Files")
         files_layout = QVBoxLayout()
@@ -214,6 +214,8 @@ class SpamLoaderWidget(QWidget):
         files_layout.addWidget(self._debug_list_button)
         files_group.setLayout(files_layout)
         options_layout.addWidget(files_group)
+
+        options_layout.addWidget(self._stack)
 
         options_layout.addWidget(crop_group)
 
@@ -238,7 +240,7 @@ class SpamLoaderWidget(QWidget):
 
         logo_label = QLabel()
         logo_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        logo_ref = resources.files("napari_spam").joinpath("assets/napari-spam2.png")
+        logo_ref = resources.files("napari_spam").joinpath("assets/napari-spam.png")
         with resources.as_file(logo_ref) as logo_path:
             if logo_path.exists():
                 pixmap = QPixmap(str(logo_path))
@@ -369,17 +371,13 @@ class SpamLoaderWidget(QWidget):
             self._stack.setCurrentIndex(0)
         elif action == _ACTION_TSVS:
             self._stack.setCurrentIndex(1)
-            self._refresh_tsv_columns()
         elif action == _ACTION_VTKS:
             self._stack.setCurrentIndex(2)
         else:
             self._stack.setCurrentIndex(0)
         self._populate_file_list()
 
-    def _refresh_tsv_columns(self) -> None:
-        if self._scan is None:
-            return
-        columns = self._scan["tsv_columns"]
+    def _refresh_tsv_columns(self, columns: list[str]) -> None:
         self._tsv_column_combo.clear()
         self._tsv_column_combo.addItems(columns)
 
@@ -442,6 +440,8 @@ class SpamLoaderWidget(QWidget):
             list_item.setData(Qt.UserRole, str(path))
             self._file_list.addItem(list_item)
 
+        self._update_column_options()
+
     def _on_file_selection_changed(self, selected, deselected) -> None:
         for index in deselected.indexes():
             item = self._file_list.itemFromIndex(index)
@@ -458,6 +458,52 @@ class SpamLoaderWidget(QWidget):
             key = item.data(Qt.UserRole)
             if key not in self._selection_order:
                 self._selection_order.append(key)
+
+        self._update_column_options()
+
+    def _update_column_options(self) -> None:
+        action = self._action_combo.currentText()
+        if action != _ACTION_TSVS:
+            self._load_button.setEnabled(True)
+            return
+
+        selected_paths = self._selected_paths()
+        if not selected_paths:
+            self._refresh_tsv_columns([])
+            self._load_button.setEnabled(False)
+            return
+
+        columns_sets: list[set[str]] = []
+        for path in selected_paths:
+            columns = self._read_tsv_header_cached(path)
+            if columns:
+                columns_sets.append(set(columns))
+
+        if not columns_sets:
+            self._refresh_tsv_columns([])
+            self._load_button.setEnabled(False)
+            return
+
+        intersection = set.intersection(*columns_sets)
+        columns = sorted(intersection, key=_natural_sort_key)
+        self._refresh_tsv_columns(columns)
+        self._load_button.setEnabled(bool(columns))
+
+    def _read_tsv_header_cached(self, path: Path) -> list[str]:
+        key = str(path)
+        if key in self._tsv_header_cache:
+            return self._tsv_header_cache[key]
+
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                header = handle.readline().strip()
+        except OSError:
+            self._tsv_header_cache[key] = []
+            return []
+
+        columns = header.split() if header else []
+        self._tsv_header_cache[key] = columns
+        return columns
 
     def _selected_paths(self) -> list[Path]:
         items = self._file_list.selectedItems()
