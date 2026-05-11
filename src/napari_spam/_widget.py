@@ -501,7 +501,7 @@ class SpamLoaderWidget(QWidget):
             self._tsv_header_cache[key] = []
             return []
 
-        columns = header.split() if header else []
+        columns = header.split("\t") if header else []
         self._tsv_header_cache[key] = columns
         return columns
 
